@@ -1,0 +1,21 @@
+dataset_name: cifar10
+input_shape: [3, 32, 32]
+test_percentage: 0.2
+num_classes: 10
+transforms:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Resize
+      size: 224
+    - _target_: torchvision.transforms.RandomRotation
+      degrees: 10
+    - _target_: torchvision.transforms.ColorJitter
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+    - _target_: torchvision.transforms.RandomHorizontalFlip
+      p: 0.5
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.4914, 0.4822, 0.4465]
+      std: [0.2471, 0.2435, 0.2616]

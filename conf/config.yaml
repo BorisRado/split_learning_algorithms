@@ -1,0 +1,16 @@
+defaults:
+  - partitioning: iid
+  - dataset: cifar10
+  - model: resnet18
+  - optimizer: adam
+  - device_capacities: simulation
+  - _self_
+general:
+  seed: 10
+  num_rounds: 1
+client_train_config:
+  lte: 1
+  batch_size: 16
+strategy_config:
+  fraction_fit: 1.0
+  fraction_evaluate: 1.0

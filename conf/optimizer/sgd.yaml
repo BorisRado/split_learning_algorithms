@@ -1,0 +1,2 @@
+optimizer_name: "sgd"
+lr: 0.01
