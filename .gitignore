@@ -17,4 +17,6 @@ slurm/history
 *.json
 *.log
 
+!requirements.txt
+
 colext_config.yaml

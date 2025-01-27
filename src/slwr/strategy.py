@@ -80,7 +80,7 @@ class Strategy(SlwrStrategy):
 
             fit_ins = (
                 client,
-                ins_cls(ndarrays_to_parameters(arrays), copy.deepcopy(client_config))
+                ins_cls(ndarrays_to_parameters(arrays), client_config)
             )
             all_ins.append(fit_ins)
         return all_ins
@@ -105,7 +105,7 @@ class Strategy(SlwrStrategy):
 
             ins = ins_cls(
                 self.whole_model_parameters[num_layers:],
-                copy.deepcopy({"last_client_layer": last_layer} | config),
+                {"last_client_layer": last_layer} | config,
                 sid=cid
             )
 
