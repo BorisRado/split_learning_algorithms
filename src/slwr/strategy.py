@@ -72,12 +72,13 @@ class Strategy(SlwrStrategy):
     def initialize_server_parameters(self):
         return []
 
-    def _configure_clients(self, clients, is_train):
+    def _configure_clients(self, server_round, clients, is_train):
         ins_cls = FitIns if is_train else EvaluateIns
 
         all_ins = []
         self.required_server_models = []
-        client_config = self.client_train_config if is_train else {}
+        client_config = self.client_train_config.copy() if is_train else {}
+        client_config["round"] = server_round
 
         for client in clients:
             num_layers = self.client_to_num_parameters[client.cid]
@@ -101,11 +102,11 @@ class Strategy(SlwrStrategy):
         assert self.start_training_time is not None
 
         clients = client_manager.sample(self.num_train_clients)
-        return self._configure_clients(clients, is_train=True)
+        return self._configure_clients(server_round, clients, is_train=True)
 
     def configure_evaluate(self, server_round, parameters, client_manager):
         clients = client_manager.sample(self.num_evaluate_clients)
-        return self._configure_clients(clients, is_train=False)
+        return self._configure_clients(server_round, clients, is_train=False)
 
     def _configure_server_models(self, is_train):
         all_ins = []

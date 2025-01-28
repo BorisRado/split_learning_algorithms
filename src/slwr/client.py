@@ -7,6 +7,7 @@ from slwr.client.numpy_client import NumPyClient
 
 from src.utils.parameters import get_parameters, set_parameters
 from src.utils.environment_variables import EnvironmentVariables as EV
+from src.utils.stochasticity import set_seed
 from src.model.utils import init_optimizer
 from src.model.training_procedures import train_ce
 from src.model.evaluation_procedures import evaluate_model
@@ -25,6 +26,7 @@ class Client(NumPyClient):
 
     def fit(self, parameters, config):
         assert {"lr", "optimizer_name", "batch_size", "lte"} <= set(config.keys())
+        set_seed(config["round"])
         self.server_model_proxy.torch()
         set_parameters(self.model, parameters)
         optimizer = init_optimizer(self.model, config)

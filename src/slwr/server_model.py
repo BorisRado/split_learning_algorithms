@@ -8,6 +8,7 @@ from slwr.server.server_model.utils import pytorch_format
 from src.utils.parameters import get_parameters, set_parameters
 from src.model.architectures.utils import instantiate_model
 from src.model.utils import init_optimizer
+from src.utils.stochasticity import StatefulRng
 
 
 class ServerModel(NumPyServerModel):
@@ -17,13 +18,15 @@ class ServerModel(NumPyServerModel):
         self.model = None  # instantiated in configure_fit
         self.optimizer = None  # instantiated in configure_fit
         self.round_loss = 0.
+        self.stateful_rng = StatefulRng(10)
 
     @pytorch_format
     def serve_grad_request(self, embeddings, labels):
         embeddings, labels = embeddings.to(self.device), labels.to(self.device)
         embeddings.requires_grad_(True)
 
-        output = self.model(embeddings)
+        with self.stateful_rng:
+            output = self.model(embeddings)
         loss = F.cross_entropy(output, labels)
 
         self.optimizer.zero_grad()
