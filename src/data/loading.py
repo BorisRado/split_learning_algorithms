@@ -1,6 +1,4 @@
 from functools import partial
-import torch
-from torch.utils.data import TensorDataset
 from hydra.utils import instantiate
 from flwr_datasets import FederatedDataset
 

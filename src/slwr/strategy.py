@@ -1,5 +1,6 @@
-import copy
+import time
 
+import wandb
 import numpy as np
 from flwr.common import (
     GetPropertiesIns,
@@ -46,6 +47,7 @@ class Strategy(SlwrStrategy):
         self.whole_model_parameters = get_parameters(model)
         self.required_server_models = set()
         self.trained_client_parameters = {}
+        self.start_training_time = None
 
     def init_server_model_fn(self):
         return self.init_server_model_fn().to_server_model()
@@ -54,10 +56,17 @@ class Strategy(SlwrStrategy):
         client_manager.wait_for(self.num_clients)
 
         get_props_ins = GetPropertiesIns({})
+        table_data = []
         for cid, client_proxy in client_manager.all().items():
             res = client_proxy.get_properties(get_props_ins, None, None)
-            self.client_to_num_parameters[cid] = res.properties["num_client_params"]
-            self.client_to_last_layer[cid] = res.properties["last_client_layer"]
+            props = res.properties
+            self.client_to_num_parameters[cid] = props["num_client_params"]
+            self.client_to_last_layer[cid] = props["last_client_layer"]
+            table_data.append((cid, props["num_client_params"], props["last_client_layer"], props["device_type"]))
+
+        if wandb.run is not None:
+            wandb.run.summary["clients"] = wandb.Table(data=table_data, columns=["cid", "num_params", "last_layer", "device_type"])
+
         return []
 
     def initialize_server_parameters(self):
@@ -86,6 +95,11 @@ class Strategy(SlwrStrategy):
         return all_ins
 
     def configure_fit(self, server_round, parameters, client_manager):
+        if server_round == 1:
+            assert self.start_training_time is None
+            self.start_training_time = time.time()
+        assert self.start_training_time is not None
+
         clients = client_manager.sample(self.num_train_clients)
         return self._configure_clients(clients, is_train=True)
 
@@ -127,7 +141,7 @@ class Strategy(SlwrStrategy):
                 fit_res.num_examples
             )
         aggregated_metrics = aggregated_metrics = self._aggregate_custom_metrics(results)
-        print("Current training loss", aggregated_metrics["loss"])
+        print("Current training loss", aggregated_metrics["train_loss"])
         return [], aggregated_metrics
 
     def _aggregate_custom_metrics(self, results):
@@ -141,6 +155,9 @@ class Strategy(SlwrStrategy):
             f"{k}_std": np.std([r.metrics[k] for _, r in results]).item()
             for k in keys
         }
+        metrics["elapsed_time"] = time.time() - self.start_training_time
+        if wandb.run is not None:
+            wandb.log(metrics)
         return metrics | metrics_stds
 
     def aggregate_server_fit(self, server_round, results):

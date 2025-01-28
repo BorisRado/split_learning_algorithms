@@ -1,10 +1,11 @@
+from dotenv import load_dotenv
 from omegaconf import OmegaConf
 import hydra
-from hydra.utils import instantiate
 from flwr.server import ServerConfig
 from slwr.server.app import start_server
 
-from src.utils.stochasticity import TempRng, set_seed
+from src.utils.stochasticity import set_seed
+from src.utils.wandb import init_wandb, finish_wandb
 from src.utils.other import get_from_cfg_or_env_var
 from src.utils.environment_variables import EnvironmentVariables as EV
 from src.slwr.strategy import Strategy
@@ -15,10 +16,13 @@ from src.model.architectures.utils import instantiate_model
 @hydra.main(version_base=None, config_path="../../conf", config_name="config")
 def run(cfg):
     print(OmegaConf.to_yaml(cfg))
-    num_clients = get_from_cfg_or_env_var(cfg, "num_clients", EV.NUM_CLIENTS)
+    num_clients = int(get_from_cfg_or_env_var(cfg, "num_clients", EV.NUM_CLIENTS))
     server_model_fn = lambda: ServerModel(
         num_classes=cfg.dataset.num_classes,
     )
+
+    if "log_to_wandb" in cfg and cfg.log_to_wandb:
+        init_wandb(cfg, {"num_clients": num_clients})
 
     model = instantiate_model(
         model_name=cfg.model.model_name,
@@ -61,6 +65,9 @@ def run(cfg):
         OmegaConf.save(fit_metrics, f)
     with open(exp_folder + "/eval_metrics.yaml", "w") as f:
         OmegaConf.save(eval_metrics, f)
+    finish_wandb()
+
 
 if __name__ == "__main__":
+    load_dotenv()
     run()

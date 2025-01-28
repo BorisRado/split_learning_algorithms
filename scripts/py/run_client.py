@@ -19,7 +19,7 @@ from src.slwr.client import Client
 def run(cfg):
     print(OmegaConf.to_yaml(cfg))
 
-    client_idx = get_from_cfg_or_env_var(cfg, "client_idx", EV.CLIENT_ID)
+    client_idx = int(get_from_cfg_or_env_var(cfg, "client_idx", EV.CLIENT_ID))
     server_ip = get_from_cfg_or_env_var(cfg, "server_ip", EV.SERVER_ADDRESS)
     device_type = get_from_cfg_or_env_var(cfg, "device_type", EV.DEVICE_TYPE)
     device_capacity = cfg.device_capacities[device_type]

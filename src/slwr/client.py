@@ -1,3 +1,4 @@
+import os
 import time
 
 import torch
@@ -5,6 +6,7 @@ import torch
 from slwr.client.numpy_client import NumPyClient
 
 from src.utils.parameters import get_parameters, set_parameters
+from src.utils.environment_variables import EnvironmentVariables as EV
 from src.model.utils import init_optimizer
 from src.model.training_procedures import train_ce
 from src.model.evaluation_procedures import evaluate_model
@@ -42,7 +44,7 @@ class Client(NumPyClient):
             get_parameters(self.model),
             len(self.trainset),
             {
-                "loss": loss / config["lte"],
+                "train_loss": loss / config["lte"],
                 "train_time": time.time() - start_time
             }
         )
@@ -65,7 +67,9 @@ class Client(NumPyClient):
 
     def get_properties(self, config):
         _ = (config, )
+        device_type = os.getenv(EV.DEVICE_TYPE, "")
         return {
             "last_client_layer": self.last_client_layer,
-            "num_client_params": len(get_parameters(self.model))
+            "num_client_params": len(get_parameters(self.model)),
+            "device_type": device_type
         }

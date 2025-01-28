@@ -18,5 +18,3 @@ slurm/history
 *.log
 
 !requirements.txt
-
-colext_config.yaml
