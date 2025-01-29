@@ -2,8 +2,8 @@ import time
 
 import wandb
 import numpy as np
+import pandas as pd
 from flwr.common import (
-    GetPropertiesIns,
     FitIns,
     EvaluateIns,
     ndarrays_to_parameters,
@@ -55,24 +55,20 @@ class Strategy(SlwrStrategy):
     def initialize_parameters(self, client_manager):
         client_manager.wait_for(self.num_clients)
 
-        get_props_ins = GetPropertiesIns({})
         table_data = []
-        for cid, client_proxy in client_manager.all().items():
-            res = client_proxy.get_properties(get_props_ins, None, None)
-            props = res.properties
-            self.client_to_num_parameters[cid] = props["num_client_params"]
-            self.client_to_last_layer[cid] = props["last_client_layer"]
-            table_data.append((cid, props["num_client_params"], props["last_client_layer"], props["device_type"]))
+        for client_proxy in client_manager.all().values():
+            table_data.append(client_manager.get_het_client_properties(client_proxy))
 
         if wandb.run is not None:
-            wandb.run.summary["clients"] = wandb.Table(data=table_data, columns=["cid", "num_params", "last_layer", "device_type"])
+            props_df = pd.DataFrame(table_data)
+            wandb.run.summary["clients"] = wandb.Table(dataframe=props_df)
 
         return []
 
     def initialize_server_parameters(self):
         return []
 
-    def _configure_clients(self, server_round, clients, is_train):
+    def _configure_clients(self, server_round, client_manager, clients, is_train):
         ins_cls = FitIns if is_train else EvaluateIns
 
         all_ins = []
@@ -81,10 +77,11 @@ class Strategy(SlwrStrategy):
         client_config["round"] = server_round
 
         for client in clients:
-            num_layers = self.client_to_num_parameters[client.cid]
-            last_layer = self.client_to_last_layer[client.cid]
+            client_props = client_manager.get_het_client_properties(client)
+            num_layers = client_props["num_client_params"]
+            last_layer = client_props["last_client_layer"]
 
-            arrays = self.whole_model_parameters[:self.client_to_num_parameters[client.cid]]
+            arrays = self.whole_model_parameters[:num_layers]
 
             self.required_server_models.append((client.cid, num_layers, last_layer))
 
@@ -102,11 +99,11 @@ class Strategy(SlwrStrategy):
         assert self.start_training_time is not None
 
         clients = client_manager.sample(self.num_train_clients)
-        return self._configure_clients(server_round, clients, is_train=True)
+        return self._configure_clients(server_round, client_manager, clients, is_train=True)
 
     def configure_evaluate(self, server_round, parameters, client_manager):
         clients = client_manager.sample(self.num_evaluate_clients)
-        return self._configure_clients(server_round, clients, is_train=False)
+        return self._configure_clients(server_round, client_manager, clients, is_train=False)
 
     def _configure_server_models(self, is_train):
         all_ins = []

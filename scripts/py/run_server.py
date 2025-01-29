@@ -10,6 +10,7 @@ from src.utils.other import get_from_cfg_or_env_var
 from src.utils.environment_variables import EnvironmentVariables as EV
 from src.slwr.strategy import Strategy
 from src.slwr.server_model import ServerModel
+from src.slwr.client_manager import HeterogeneousClientManager
 from src.model.architectures.utils import instantiate_model
 
 
@@ -49,6 +50,7 @@ def run(cfg):
     history = start_server(
         server_address="0.0.0.0:8080",
         strategy=strategy,
+        client_manager=HeterogeneousClientManager(),
         config=ServerConfig(num_rounds=cfg.general.num_rounds),
     )
     fit_metrics = {
