@@ -1,6 +1,9 @@
+import os
 from functools import partial
 from hydra.utils import instantiate
 from flwr_datasets import FederatedDataset
+
+from src.utils.environment_variables import EnvironmentVariables as EV
 
 
 def _apply_transforms(batch, transforms):
@@ -15,6 +18,7 @@ def get_dataset_from_cfg(dataset_cfg, partitioning_cfg, seed, client_idx):
         dataset=dataset_cfg.dataset_name,
         partitioners={"train": partitioner},
         seed=seed,
+        cache_dir=os.getenv(EV.DATA_HOME_FOLDER, None),
     )
     dataset = fds.load_partition(client_idx)
     transforms = instantiate(dataset_cfg.transforms)

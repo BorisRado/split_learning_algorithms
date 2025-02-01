@@ -1,0 +1,34 @@
+project: slwr # project name should not have spaces
+job_name: "SOTA FL experiment"
+
+code:
+  # Path can be omited if colext_config.yaml is in the root folder of the project
+  path: "/home/radovib/heterogeneous_sl"
+  client:
+    command: >-
+      PYTHONPATH=. python3 -u scripts/py/run_client.py
+      partitioning.num_partitions=100
+      device_capacities=colext
+      device_capacities.JetsonAGXOrin=strong
+      device_capacities.JetsonOrinNano=strong
+      device_capacities.JetsonXavierNX=strong
+      device_capacities.LattePandaDelta3=weak
+      device_capacities.OrangePi5B=weak
+      model.last_layers.weak=maxpool
+
+  server:
+    command: >-
+      PYTHONPATH=. python3 -u scripts/py/run_server.py
+      general.num_rounds=40
+      model.pretrained=true
+      strategy_config.fraction_evaluate=1.0
+      strategy_config.fraction_fit=1.0
+      +log_to_wandb=true
+      model.last_layers.weak=maxpool
+
+devices:
+  - { device_type: JetsonAGXOrin,  count: 2 }
+  - { device_type: JetsonOrinNano, count: 4 }
+  - { device_type: JetsonXavierNX, count: 2 }
+  - { device_type: LattePandaDelta3, count: 4 }
+  - { device_type: OrangePi5B, count: 8 }

@@ -1,0 +1,10 @@
+algorithm_name: splitfedv1
+process_all_clients_as_batch: false
+model:
+  client_partitions: client
+  server_partitions: server
+  last_client_layer: layer1
+client_kwargs:
+  train_fn: src.model.training_procedures.train_ce
+  eval_fn: src.model.evaluation_procedures.evaluate_model
+num_training_server_models: 1

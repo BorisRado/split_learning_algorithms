@@ -25,6 +25,30 @@ def resnet18(pretrained, num_classes, partition, last_client_layer):
     elif partition == "server":
         model = nn.Sequential(*[getattr(model, k) for k in server_layers])
         model = model.insert(-1, nn.Flatten())
+    elif partition == "server_encoder":
+        model = nn.Sequential(*[getattr(model, k) for k in server_layers[:-1]])
+        model = model.append(nn.Flatten())
+    elif partition == "final_clf_head":
+        model = model.fc
+    elif partition == "intermediate_clf_head":
+        assert last_client_layer == "layer1"
+        model = nn.Sequential(
+            nn.Conv2d(64, 128, 3, 1, 1),
+            nn.ReLU(),
+            nn.AdaptiveMaxPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(128, num_classes)
+        )
+    elif partition == "decoder":
+        # for LocFedMix
+        model = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, 3, 2, 1, 1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.ConvTranspose2d(32, 3, 3, 2, 1, 1),
+            nn.Sigmoid()
+        )
+
     else:
         assert partition is None and last_client_layer is None
 
@@ -40,10 +64,16 @@ if __name__ == "__main__":
     seed = 1602
     common_kwargs = {"pretrained": False, "num_classes": 10}
     with TempRng(seed=seed):
-        client_model = resnet18(partition="client", last_client_layer="layer3", **common_kwargs)
+        client_model = resnet18(partition="client", last_client_layer="maxpool", **common_kwargs)
 
     with TempRng(seed=seed):
-        server_model = resnet18(partition="server", last_client_layer="layer3", **common_kwargs)
+        server_model = resnet18(partition="server", last_client_layer="maxpool", **common_kwargs)
+
+    with TempRng(seed=seed):
+        server_encoder = resnet18(partition="server_encoder", last_client_layer="maxpool", **common_kwargs)
+
+    with TempRng(seed=seed):
+        client_clf_head = resnet18(partition="final_clf_head", last_client_layer="maxpool", **common_kwargs)
 
     with TempRng(seed=seed):
         whole_model = resnet18(partition=None, last_client_layer=None, **common_kwargs)
@@ -54,3 +84,6 @@ if __name__ == "__main__":
         whole_model_preds = whole_model(x)
         set_seed(seed=seed)
         assert server_model(client_model(x)).allclose(whole_model_preds)
+
+        set_seed(seed=seed)
+        assert client_clf_head(server_encoder(client_model(x))).allclose(whole_model_preds)

@@ -25,13 +25,16 @@ class Strategy(SlwrStrategy):
     def __init__(
         self,
         num_clients,
-        model,
+        client_model,
+        server_model,
+        process_all_clients_as_batch,
         server_model_train_config,
         server_model_evaluate_config,
         client_train_config,
         fraction_fit,
         fraction_evaluate,
         init_server_model_fn,
+        num_training_server_models,
     ):
         self.num_clients = num_clients
         self.server_model_train_config = server_model_train_config
@@ -39,57 +42,43 @@ class Strategy(SlwrStrategy):
         self.num_train_clients = int(fraction_fit * self.num_clients)
         self.num_evaluate_clients = int(fraction_evaluate * self.num_clients)
         self.init_server_model_fn = init_server_model_fn
+        self.process_all_clients_as_batch = process_all_clients_as_batch
         self.server_model_evaluate_config = server_model_evaluate_config
+        self.num_training_server_models = num_training_server_models \
+            if num_training_server_models > 0 else self.num_train_clients
 
-        self.client_to_num_parameters = {}
-        self.client_to_last_layer = {}
+        self.client_model_params = get_parameters(client_model)
+        self.server_model_params = get_parameters(server_model)
 
-        self.whole_model_parameters = get_parameters(model)
-        self.required_server_models = set()
-        self.trained_client_parameters = {}
         self.start_training_time = None
         self._rount_start_time = None
+        self.cid_to_sid_mapping = {}
+        self.request_group = None
 
     def init_server_model_fn(self):
         return self.init_server_model_fn().to_server_model()
 
     def initialize_parameters(self, client_manager):
         client_manager.wait_for(self.num_clients)
-
-        table_data = []
-        for client_proxy in client_manager.all().values():
-            table_data.append(client_manager.get_het_client_properties(client_proxy))
-
-        if wandb.run is not None:
-            props_df = pd.DataFrame(table_data)
-            wandb.run.summary["clients"] = wandb.Table(dataframe=props_df)
-
-        return []
+        return ndarrays_to_parameters(self.client_model_params)
 
     def initialize_server_parameters(self):
-        return []
+        params = self.server_model_params
+        del self.server_model_params
+        return params
 
-    def _configure_clients(self, server_round, client_manager, clients, is_train):
+    def _configure_clients(self, parameters, server_round, clients, is_train):
         self._rount_start_time = time.time()
         ins_cls = FitIns if is_train else EvaluateIns
 
         all_ins = []
-        self.required_server_models = []
         client_config = self.client_train_config.copy() if is_train else {}
         client_config["round"] = server_round
 
         for client in clients:
-            client_props = client_manager.get_het_client_properties(client)
-            num_layers = client_props["num_client_params"]
-            last_layer = client_props["last_client_layer"]
-
-            arrays = self.whole_model_parameters[:num_layers]
-
-            self.required_server_models.append((client.cid, num_layers, last_layer))
-
             fit_ins = (
                 client,
-                ins_cls(ndarrays_to_parameters(arrays), client_config)
+                ins_cls(parameters, client_config)
             )
             all_ins.append(fit_ins)
         return all_ins
@@ -101,48 +90,45 @@ class Strategy(SlwrStrategy):
         assert self.start_training_time is not None
 
         clients = client_manager.sample(self.num_train_clients)
-        return self._configure_clients(server_round, client_manager, clients, is_train=True)
+        self.triaining_client_ids = [c.cid for c in clients]
+        assert len(self.triaining_client_ids) % self.num_training_server_models == 0
+        return self._configure_clients(parameters, server_round, clients, is_train=True)
 
     def configure_evaluate(self, server_round, parameters, client_manager):
         clients = client_manager.sample(self.num_evaluate_clients)
-        return self._configure_clients(server_round, client_manager, clients, is_train=False)
-
-    def _configure_server_models(self, is_train):
-        all_ins = []
-        ins_cls = ServerModelFitIns if is_train else ServerModelEvaluateIns
-        config = self.server_model_train_config if is_train else self.server_model_evaluate_config
-        for cid, num_layers, last_layer in self.required_server_models:
-            if num_layers == len(self.whole_model_parameters):
-                # client will fully train a model locally
-                # => no need to instantiate a server model for these clients
-                continue
-
-            ins = ins_cls(
-                self.whole_model_parameters[num_layers:],
-                {"last_client_layer": last_layer} | config,
-                sid=cid
-            )
-
-            all_ins.append(ins)
-        return all_ins
+        return self._configure_clients(parameters, server_round, clients, is_train=False)
 
     def configure_server_fit(self, server_round, parameters, cids):
-        return self._configure_server_models(is_train=True)
+        _ = (server_round,)
+        unique_sids = cids[:self.num_training_server_models]
+        print(unique_sids)
+        sids = unique_sids * (len(cids) // self.num_training_server_models)
+        print(sids)
+        print(cids)
+        self.cid_to_sid_mapping = {cid: sid for cid, sid in zip(cids, sids)}
+        print("Number of server models", len(unique_sids))
+        print(self.cid_to_sid_mapping)
+        return [ServerModelFitIns(parameters, self.server_model_train_config, sid=cid) for cid in unique_sids]
 
     def configure_server_evaluate(self, server_round, parameters, cids):
-        return self._configure_server_models(is_train=False)
+        self.cid_to_sid_mapping = {cid: "" for cid in cids}
+        return [ServerModelEvaluateIns(parameters, self.server_model_evaluate_config, sid="")]
 
     def aggregate_fit(self, server_round, results, failures):
         _ = (server_round, failures,)
+        self._num_round_active_clients = -1
+        for failure in failures:
+            print("===ERROR===", str(failure))
 
-        for client, fit_res in results:
-            self.trained_client_parameters[client.cid] = (
-                parameters_to_ndarrays(fit_res.parameters),
-                fit_res.num_examples
-            )
+        weights_results = [
+            (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
+            for _, fit_res in results
+        ]
+        parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
+
         aggregated_metrics = aggregated_metrics = self._aggregate_custom_metrics(results)
         print("Current training loss", aggregated_metrics["train_loss"])
-        return [], aggregated_metrics
+        return parameters_aggregated, aggregated_metrics
 
     def _aggregate_custom_metrics(self, results):
         tot_num_examples = sum([r[1].num_examples for r in results])
@@ -163,14 +149,14 @@ class Strategy(SlwrStrategy):
 
     def aggregate_server_fit(self, server_round, results):
         _ = (server_round, )
-        for res in results:
-            self.trained_client_parameters[res.sid][0].extend(res.parameters)
+        weights_results = [
+            (res.parameters, res.config["num_examples"])
+            for res in results
+        ]
+        parameters_aggregated = aggregate(weights_results)
 
-        weighted_results = list(self.trained_client_parameters.values())
-        self.whole_model_parameters = aggregate(weighted_results)
+        return parameters_aggregated
 
-        self.trained_client_parameters = {} # clean resources
-        return []
 
     def aggregate_evaluate(self, server_round, results, failures):
         _ = (server_round, failures, )
@@ -185,8 +171,18 @@ class Strategy(SlwrStrategy):
 
     def route_client_request(self, cid, method_name):
         # each client batc is processed independently
-        request_group = ClientRequestGroup(sid=cid)
-        request_group.mark_as_ready()
+        if self.request_group is None:
+            self.request_group = ClientRequestGroup(sid=self.cid_to_sid_mapping[cid])
+
+        if (
+            not self.process_all_clients_as_batch or
+            self.request_group.get_num_batches() == self.num_train_clients - 1
+        ):
+            self.request_group.mark_as_ready()
+            request_group = self.request_group
+            self.request_group = None
+        else:
+            request_group = self.request_group
         return request_group, None
 
     def mark_ready_requests(self):
