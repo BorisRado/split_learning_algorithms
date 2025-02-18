@@ -97,7 +97,9 @@ class ServerModel(NumPyServerModel):
     def u_forward(self, embeddings):
         self.client_embeddings = embeddings.to(self.device)
         self.client_embeddings.requires_grad_(True)
-        self.server_embeddings = self.model(self.client_embeddings)
+        self.num_processed_batches += 1
+        with self.stateful_rng:
+            self.server_embeddings = self.model(self.client_embeddings)
         return self.server_embeddings
 
     @pytorch_format
@@ -132,3 +134,20 @@ class ServerModel(NumPyServerModel):
             mixup_labels = (labels[idx] + labels[other_idx]) / 2
             ce_gradients[idx] += self._update_server_model_and_get_grad(mixup_emb, mixup_labels).cpu().numpy()
         return ce_gradients
+
+    def serve_splitavg_gradient(self, embeddings, labels):
+        sizes = [e.shape[0] for e in embeddings]
+        embeddings = torch.vstack([torch.from_numpy(e) for e in embeddings])
+        labels = torch.hstack([torch.from_numpy(l) for l in labels])
+        grad = self._update_server_model_and_get_grad(embeddings, labels).detach().cpu()
+        average_gradient = grad.mean(dim=0).numpy()
+        assert average_gradient.shape == embeddings[0].shape
+        split_gradient = torch.split(grad, sizes, dim=0)
+        split_gradient = [g.numpy() for g in split_gradient]
+        with self.stateful_rng:
+            avg_indices = torch.randperm(len(sizes))[:len(sizes) // 2]
+        for idx in avg_indices:
+            split_gradient[idx][:] = average_gradient
+        for idx in avg_indices:
+            assert np.all(split_gradient[idx][1:] == split_gradient[idx][0])
+        return split_gradient

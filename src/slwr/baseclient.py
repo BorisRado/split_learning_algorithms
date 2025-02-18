@@ -6,7 +6,6 @@ import torch
 from slwr.client.numpy_client import NumPyClient
 
 from src.utils.parameters import get_parameters, set_parameters
-from src.utils.environment_variables import EnvironmentVariables as EV
 from src.utils.stochasticity import set_seed
 from src.utils.other import import_given_string
 from src.model.utils import init_optimizer

@@ -1,4 +1,4 @@
-algorithm_name: splitfedv1
+algorithm_name: shaped
 process_all_clients_as_batch: false
 model:
   client_partitions:

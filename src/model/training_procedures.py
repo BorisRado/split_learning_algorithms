@@ -120,12 +120,14 @@ def train_streamsl(model, server_model_proxy, trainloader, optimizer):
 
     model.train()
     model.to(device)
+    model.requires_grad_(False)
 
     tot_loss = 0.
     for batch in trainloader:
         img, labels = batch["img"].to(device), batch["label"]
 
-        client_embs = model(img)
+        with torch.no_grad():
+            client_embs = model(img)
 
         server_model_proxy.update_server_model(
             embeddings=client_embs,
@@ -134,7 +136,6 @@ def train_streamsl(model, server_model_proxy, trainloader, optimizer):
         )
 
     tot_loss = server_model_proxy.get_round_loss().item()
-    tot_loss /= len(trainloader)
 
     return { "train_loss": tot_loss, }
 
@@ -179,3 +180,34 @@ def train_locfedmix(model, server_model_proxy, trainloader, optimizer):
         "recon_loss": tot_recon_loss,
         "train_loss": server_model_proxy.get_round_loss().item(),
     }
+
+
+def train_splitavg(model, server_model_proxy, trainloader, optimizer):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model.train()
+    model.to(device)
+
+    tot_loss = 0.
+    for batch in trainloader:
+        img, labels = batch["img"], batch["label"]
+        img = img.to(device)
+
+        output = model(img)
+
+        optimizer.zero_grad()
+
+        assert not model.is_complete_model
+        gradient = server_model_proxy.serve_splitavg_gradient(
+            embeddings=output,
+            labels=labels
+        ).to(device)
+        output.backward(gradient)
+
+        optimizer.step()
+    if not model.is_complete_model:
+        tot_loss = server_model_proxy.get_round_loss().item()
+    else:
+        tot_loss /= len(trainloader)
+
+    return {"train_loss": tot_loss}

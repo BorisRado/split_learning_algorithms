@@ -8,7 +8,7 @@ from src.data.loading import get_dataset_from_cfg
 from src.model.architectures.utils import instantiate_general_model
 from src.utils.environment_variables import EnvironmentVariables as EV
 from src.utils.stochasticity import set_seed
-from src.utils.other import get_from_cfg_or_env_var
+from src.utils.other import get_from_cfg_or_env_var, set_torch_flags
 from src.slwr.baseclient import BaseClient as Client
 
 
@@ -16,6 +16,7 @@ from src.slwr.baseclient import BaseClient as Client
 @hydra.main(version_base=None, config_path="../../conf", config_name="multialgo_config")
 def run(cfg):
     print(OmegaConf.to_yaml(cfg))
+    set_torch_flags()
     set_seed(cfg.general.seed)
 
     client_idx = int(get_from_cfg_or_env_var(cfg, "client_idx", EV.CLIENT_ID))

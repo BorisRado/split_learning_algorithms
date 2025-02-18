@@ -33,10 +33,14 @@ def resnet18(pretrained, num_classes, partition, last_client_layer):
     elif partition == "intermediate_clf_head":
         assert last_client_layer == "layer1"
         model = nn.Sequential(
-            nn.Conv2d(64, 128, 3, 1, 1),
+            nn.Conv2d(64, 128, 3, 1, 1, bias=False),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.AdaptiveMaxPool2d((1, 1)),
             nn.Flatten(),
+            nn.Linear(128, 128, bias=False),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
             nn.Linear(128, num_classes)
         )
     elif partition == "decoder":

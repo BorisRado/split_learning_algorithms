@@ -2,7 +2,6 @@ import time
 
 import wandb
 import numpy as np
-import pandas as pd
 from flwr.common import (
     FitIns,
     EvaluateIns,
@@ -101,13 +100,9 @@ class Strategy(SlwrStrategy):
     def configure_server_fit(self, server_round, parameters, cids):
         _ = (server_round,)
         unique_sids = cids[:self.num_training_server_models]
-        print(unique_sids)
         sids = unique_sids * (len(cids) // self.num_training_server_models)
-        print(sids)
-        print(cids)
         self.cid_to_sid_mapping = {cid: sid for cid, sid in zip(cids, sids)}
         print("Number of server models", len(unique_sids))
-        print(self.cid_to_sid_mapping)
         return [ServerModelFitIns(parameters, self.server_model_train_config, sid=cid) for cid in unique_sids]
 
     def configure_server_evaluate(self, server_round, parameters, cids):

@@ -3,8 +3,8 @@
 #SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=2GB
+#SBATCH --cpus-per-task=16
+#SBATCH --mem-per-cpu=1GB
 #SBATCH --gpus=1
 #SBATCH --partition=debug
 #SBATCH --constraint=gpu_p100

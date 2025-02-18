@@ -6,7 +6,7 @@ from slwr.server.app import start_server
 
 from src.utils.stochasticity import set_seed
 from src.utils.wandb import init_wandb, finish_wandb
-from src.utils.other import get_from_cfg_or_env_var
+from src.utils.other import get_from_cfg_or_env_var, set_torch_flags
 from src.utils.environment_variables import EnvironmentVariables as EV
 from src.slwr.simple_strategy import Strategy
 from src.slwr.server_model import ServerModel
@@ -16,11 +16,13 @@ from src.model.architectures.utils import instantiate_general_model
 @hydra.main(version_base=None, config_path="../../conf", config_name="multialgo_config")
 def run(cfg):
     print(OmegaConf.to_yaml(cfg))
+    set_torch_flags()
     num_clients = int(get_from_cfg_or_env_var(cfg, "num_clients", EV.NUM_CLIENTS))
     server_model_fn = lambda: ServerModel(
         num_classes=cfg.dataset.num_classes,
     )
 
+    server_port = cfg.server_port if "server_port" in cfg else 8080
     if "log_to_wandb" in cfg and cfg.log_to_wandb:
         init_wandb(cfg, {"num_clients": num_clients})
 
@@ -57,7 +59,7 @@ def run(cfg):
 
     set_seed(cfg.general.seed)
     history = start_server(
-        server_address="0.0.0.0:8080",
+        server_address=f"0.0.0.0:{server_port}",
         strategy=strategy,
         config=ServerConfig(num_rounds=cfg.general.num_rounds),
     )

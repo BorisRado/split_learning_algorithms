@@ -1,20 +1,18 @@
 #!/bin/bash -l
 
-#SBATCH --time=10:00:00
+#SBATCH --time=20:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem-per-cpu=1GB
 #SBATCH --gpus=1
 #SBATCH --constraint=gpu_a100
-#SBATCH --out=logs/train_fns_a100.log
+#SBATCH --out=logs/train_fns_a100_5.log
 
 #SBATCH hetjob
 #SBATCH --ntasks=8
-#SBATCH --gpus=0
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=2GB
-#SBATCH --constraint=cpu_intel_xeon_silver_4112
+#SBATCH --cpus-per-task=8
+#SBATCH --mem-per-cpu=1GB
 
 mamba activate slower
 export PYTHONPATH=$PYTHONPATH:../slower_repo
@@ -24,15 +22,24 @@ num_clients=8
 server_ip=$(srun --het-group=0 hostname)
 echo "First group hosts: ---${server_ip}---"
 
-for algorithm in splitfedv1 splitfedv2 streamsl ushaped fsl locfedmix; do
-for pretrained in true false; do
+server_port=8085
+
+for algorithm in splitavg splitfedv1 splitfedv2 splitfed2com streamsl ushaped fsl locfedmix; do
+for pretrained in false; do
+
+if [ "$pretrained" = true ]; then
+    num_rounds=60
+else
+    num_rounds=200
+fi
 
 folder_config="hydra.run.dir=outputs/distributed/${algorithm}_${pretrained}"
 
 CONFIG="+num_clients=${num_clients} \
-    general.num_rounds=40 \
+    +server_port=$server_port \
+    general.num_rounds=$num_rounds \
     model.pretrained=$pretrained \
-    +server_ip=\"${server_ip}:8080\" \
+    +server_ip=\"${server_ip}:$server_port\" \
     partitioning.num_partitions=50   \
     algorithm=$algorithm \
     +log_to_wandb=true \

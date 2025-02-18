@@ -1,4 +1,4 @@
-algorithm_name: splitfedv1
+algorithm_name: fsl
 process_all_clients_as_batch: false
 model:
   client_partitions:
