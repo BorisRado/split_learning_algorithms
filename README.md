@@ -1,5 +1,7 @@
 # Split Learning with heterogeneous client-side model sizes
 
+Implementation for reproducing results contained in the paper `Towards a Unified Framework for Split Learning` (Radovič, Boris and Canini, Marco and Horváth, Samuel and Pejović, Veljko and Vepakomma, Praneeth) @ EuroMLSys'25.
+
 Scripts to obtain the results are in the `scripts/slurm` folder:
 
 * `run_simulations.sh`: run experiments for train time with respect to number of clients with the SplitFed v1 algorithm;

@@ -2,7 +2,7 @@ import hydra
 import torch.nn as nn
 from omegaconf import OmegaConf
 
-from slwr.client.app import start_client
+from slbd.client.app import start_client
 
 from src.data.loading import get_dataset_from_cfg
 from src.model.architectures.utils import instantiate_general_model

@@ -3,7 +3,7 @@ import time
 
 import torch
 
-from slwr.client.numpy_client import NumPyClient
+from slbd.client.numpy_client import NumPyClient
 
 from src.utils.parameters import get_parameters, set_parameters
 from src.utils.environment_variables import EnvironmentVariables as EV

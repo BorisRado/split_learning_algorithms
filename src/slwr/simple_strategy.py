@@ -10,17 +10,17 @@ from flwr.common import (
 )
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 
-from slwr.server.strategy.strategy import Strategy as SlwrStrategy
-from slwr.common import (
+from slbd.server.strategy.strategy import Strategy as SlbdStrategy
+from slbd.common import (
     ServerModelEvaluateIns,
     ServerModelFitIns,
 )
-from slwr.server.server_model.utils import ClientRequestGroup
+from slbd.server.server_model.utils import ClientRequestGroup
 
 from src.utils.parameters import get_parameters
 
 
-class Strategy(SlwrStrategy):
+class Strategy(SlbdStrategy):
     def __init__(
         self,
         num_clients,

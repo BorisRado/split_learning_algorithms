@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from slwr.server.server_model.numpy_server_model import NumPyServerModel
-from slwr.server.server_model.utils import pytorch_format
+from slbd.server.server_model.numpy_server_model import NumPyServerModel
+from slbd.server.server_model.utils import pytorch_format
 
 from src.utils.parameters import get_parameters, set_parameters
 from src.model.architectures.utils import instantiate_model, instantiate_general_model

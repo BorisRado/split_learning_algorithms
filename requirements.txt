@@ -6,5 +6,5 @@ numpy==1.26.4
 wandb==0.18.7
 python-dotenv==1.0.1
 torch==2.4.1
-slwr @ git+https://github.com/sands-lab/slower.git@148cb07758cb0f389a6b73f53f639131a2312b23
+slbd @ git+https://github.com/sands-lab/splitbud.git@87d151eb30644aea4035a7407c3695f2000f5465
 torchvision==0.19.1

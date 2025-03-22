@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from omegaconf import OmegaConf
 import hydra
 from flwr.server import ServerConfig
-from slwr.server.app import start_server
+from slbd.server.app import start_server
 
 from src.utils.stochasticity import set_seed
 from src.utils.wandb import init_wandb, finish_wandb

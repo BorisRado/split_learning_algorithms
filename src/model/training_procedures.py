@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from slwr.common import RequestType
+from slbd.common import RequestType
 
 
 def train_ce(model, server_model_proxy, trainloader, optimizer):
